@@ -3,6 +3,7 @@ import struct
 import threading
 import time
 import random
+import select
 
 # Constants
 MAGIC_COOKIE = 0xabcddcba
@@ -50,7 +51,6 @@ class Server:
             print(f"Error handling UDP client: {e}")
 
     def start(self):
-        """Start the server."""
         print(f"Server started. UDP port: {self.udp_port}, TCP port: {self.tcp_port}")
         threading.Thread(target=self.broadcast_offers, daemon=True).start()
 
@@ -64,7 +64,8 @@ class Server:
                 print("Listening for UDP requests...")
 
                 while True:
-                    ready, _, _ = socket.select.select([tcp_socket, udp_socket], [], [])
+                    # Use select.select to monitor both sockets
+                    ready, _, _ = select.select([tcp_socket, udp_socket], [], [])
                     for sock in ready:
                         if sock == tcp_socket:
                             client_socket, _ = tcp_socket.accept()
