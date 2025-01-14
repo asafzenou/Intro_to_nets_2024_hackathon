@@ -1,7 +1,6 @@
 import socket
 import struct
 import threading
-import select
 import time
 
 # Constants
@@ -11,10 +10,8 @@ REQUEST_TYPE = 0x3
 PAYLOAD_TYPE = 0x4
 
 class Client:
-    def __init__(self):
-        self.port = 13117
-
     def listen_for_offers(self):
+        """Listen for server offers via UDP broadcast."""
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp_socket:
             udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
@@ -22,29 +19,23 @@ class Client:
             print("Client listening for offers...")
 
             while True:
-                ready_sockets, _, _ = select.select([udp_socket], [], [], 5)
-                if udp_socket in ready_sockets:
-                    try:
-                        data, address = udp_socket.recvfrom(1024)
-                        if len(data) >= 9:
-                            magic_cookie, message_type, udp_port, tcp_port = struct.unpack('>IBHH', data[:9])
-                            if magic_cookie == MAGIC_COOKIE and message_type == OFFER_TYPE:
-                                print(f"Received offer from {address[0]} - UDP port {udp_port}, TCP port {tcp_port}")
-                                return address[0], udp_port, tcp_port
-                    except Exception as e:
-                        print(f"Error receiving offer: {e}")
-                else:
-                    print("No offers received, retrying...")
+                data, address = udp_socket.recvfrom(1024)
+                if len(data) >= 9:
+                    magic_cookie, message_type, udp_port, tcp_port = struct.unpack('>IBHH', data[:9])
+                    if magic_cookie == MAGIC_COOKIE and message_type == OFFER_TYPE:
+                        print(f"Received offer from {address[0]} - UDP port {udp_port}, TCP port {tcp_port}")
+                        return address[0], udp_port, tcp_port
 
     def send_requests(self, server_ip, udp_port, tcp_port, file_size, tcp_connections, udp_connections):
+        """Send TCP and UDP requests to the server."""
         def tcp_request():
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as tcp_socket:
                 tcp_socket.connect((server_ip, tcp_port))
                 tcp_socket.sendall(f"{file_size}\n".encode())
                 start_time = time.time()
-                data = tcp_socket.recv(file_size)
+                tcp_socket.recv(file_size)
                 elapsed = time.time() - start_time
-                print(f"TCP transfer finished in {elapsed:.2f}s")
+                print(f"TCP transfer completed in {elapsed:.2f} seconds.")
 
         def udp_request():
             with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp_socket:
@@ -54,33 +45,29 @@ class Client:
                 start_time = time.time()
                 received_segments = 0
                 while True:
-                    ready_sockets, _, _ = select.select([udp_socket], [], [], 1)
-                    if udp_socket in ready_sockets:
-                        try:
-                            data, _ = udp_socket.recvfrom(2048)
-                            if len(data) >= 21:
-                                received_segments += 1
-                        except Exception:
-                            break
-                    else:
+                    udp_socket.settimeout(1)
+                    try:
+                        data, _ = udp_socket.recvfrom(2048)
+                        if len(data) >= 21:
+                            received_segments += 1
+                    except socket.timeout:
                         break
                 elapsed = time.time() - start_time
-                print(f"UDP transfer finished in {elapsed:.2f}s, received {received_segments} segments")
+                print(f"UDP transfer completed in {elapsed:.2f} seconds, {received_segments} segments received.")
 
         threads = []
         for _ in range(tcp_connections):
             threads.append(threading.Thread(target=tcp_request))
-
         for _ in range(udp_connections):
             threads.append(threading.Thread(target=udp_request))
 
-        for t in threads:
-            t.start()
-
-        for t in threads:
-            t.join()
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
 
     def start(self):
+        """Start the client."""
         file_size = int(input("Enter file size in bytes: "))
         tcp_connections = int(input("Enter number of TCP connections: "))
         udp_connections = int(input("Enter number of UDP connections: "))
