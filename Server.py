@@ -82,5 +82,4 @@ class Server:
                                 magic_cookie, message_type, file_size = struct.unpack('>IBQ', data[:13])
                                 if magic_cookie == MAGIC_COOKIE and message_type == REQUEST_TYPE:
                                     threading.Thread(
-                                        target=self.handle_client_udp, args=(udp_socket, client_address, file_size), daemon=True
-                                    ).start()
+                                        target=self.handle_client_udp, args=(udp_socket, client_address, file_size), daemon=True).start()
