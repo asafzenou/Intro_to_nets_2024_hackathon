@@ -4,6 +4,8 @@ import threading
 import time
 import random
 
+from Server import Server
+
 # Constants
 MAGIC_COOKIE = 0xabcddcba
 OFFER_TYPE = 0x2
@@ -77,11 +79,4 @@ class Client:
         self.send_requests(server_ip, udp_port, tcp_port, file_size, tcp_connections, udp_connections)
 
 
-if __name__ == "__main__":
-    role = input("Start as (server/client): ").strip().lower()
-    if role == "server":
-        server = Server()
-        server.start()
-    elif role == "client":
-        client = Client()
-        client.start()
+
