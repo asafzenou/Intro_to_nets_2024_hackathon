@@ -1,6 +1,7 @@
 import socket
 import struct
 import threading
+import select
 import time
 
 # Constants
@@ -21,15 +22,19 @@ class Client:
             print("Client listening for offers...")
 
             while True:
-                try:
-                    data, address = udp_socket.recvfrom(1024)
-                    if len(data) >= 9:
-                        magic_cookie, message_type, udp_port, tcp_port = struct.unpack('>IBHH', data[:9])
-                        if magic_cookie == MAGIC_COOKIE and message_type == OFFER_TYPE:
-                            print(f"Received offer from {address[0]} - UDP port {udp_port}, TCP port {tcp_port}")
-                            return address[0], udp_port, tcp_port
-                except Exception as e:
-                    print(f"Error receiving offer: {e}")
+                ready_sockets, _, _ = select.select([udp_socket], [], [], 5)
+                if udp_socket in ready_sockets:
+                    try:
+                        data, address = udp_socket.recvfrom(1024)
+                        if len(data) >= 9:
+                            magic_cookie, message_type, udp_port, tcp_port = struct.unpack('>IBHH', data[:9])
+                            if magic_cookie == MAGIC_COOKIE and message_type == OFFER_TYPE:
+                                print(f"Received offer from {address[0]} - UDP port {udp_port}, TCP port {tcp_port}")
+                                return address[0], udp_port, tcp_port
+                    except Exception as e:
+                        print(f"Error receiving offer: {e}")
+                else:
+                    print("No offers received, retrying...")
 
     def send_requests(self, server_ip, udp_port, tcp_port, file_size, tcp_connections, udp_connections):
         def tcp_request():
@@ -48,14 +53,16 @@ class Client:
 
                 start_time = time.time()
                 received_segments = 0
-
                 while True:
-                    udp_socket.settimeout(1)
-                    try:
-                        data, _ = udp_socket.recvfrom(2048)
-                        if len(data) >= 21:
-                            received_segments += 1
-                    except socket.timeout:
+                    ready_sockets, _, _ = select.select([udp_socket], [], [], 1)
+                    if udp_socket in ready_sockets:
+                        try:
+                            data, _ = udp_socket.recvfrom(2048)
+                            if len(data) >= 21:
+                                received_segments += 1
+                        except Exception:
+                            break
+                    else:
                         break
                 elapsed = time.time() - start_time
                 print(f"UDP transfer finished in {elapsed:.2f}s, received {received_segments} segments")
