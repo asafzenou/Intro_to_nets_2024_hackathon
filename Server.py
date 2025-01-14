@@ -69,7 +69,8 @@ class Server:
                 print("Listening for UDP requests...")
 
                 while True:
-                    ready_sockets, _, _ = socket.select.select([tcp_socket, udp_socket], [], [])
+                    import select
+                    ready_sockets, _, _ = select.select([tcp_socket, udp_socket], [], [])
 
                     for sock in ready_sockets:
                         if sock == tcp_socket:

@@ -4,6 +4,8 @@ import threading
 import time
 import random
 
+from Server import Server
+
 # Constants
 MAGIC_COOKIE = 0xabcddcba
 OFFER_TYPE = 0x2
@@ -14,7 +16,7 @@ PAYLOAD_TYPE = 0x4
 class Client:
     def listen_for_offers(self):
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp_socket:
-            udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+            udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             udp_socket.bind(('', 13117))
             print("Client listening for offers...")
 
@@ -77,11 +79,4 @@ class Client:
         self.send_requests(server_ip, udp_port, tcp_port, file_size, tcp_connections, udp_connections)
 
 
-if __name__ == "__main__":
-    role = input("Start as (server/client): ").strip().lower()
-    if role == "server":
-        server = Server()
-        server.start()
-    elif role == "client":
-        client = Client()
-        client.start()
+
