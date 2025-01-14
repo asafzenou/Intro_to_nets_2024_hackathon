@@ -1,84 +1,92 @@
-import sys
 from socket import *
 import struct
-from scapy.arch import *
 from select import select
+import sys
 import getch
+from scapy.arch import get_if_addr
 
 
 class Client:
 
     def __init__(self):
-        self.port = 13500
-        self.server_host = ""
-        self.state = False  # False - not in game mode
-
+        self.buff_len = 2048
         self.magic_cookie = 0xabcddcba
-        self.message_type = 0x2
+        self.msg_type = 0x2
+        self.team_name = "STAV NAVIT"
+        self.udp_port = 13111
+        self.server_ip = ""
 
-    def main(self):
+    def start_client(self):
         print("Client started, listening for offer requests...")
-        while 1:
-            server_port = self.listenning_on_udp()
-            client_socket = self.listening_on_tcp(server_port)
-            if (client_socket is None):
+        while True:
+            server_port, server_ip = self.get_offer_byUDP()
+            client_socket_TCP = self.connect_to_server(server_port, server_ip)
+            print("sent to connect_to_server")
+            if client_socket_TCP is None:
                 continue
-            start_game(client_socket)
+            self.start_game(client_socket_TCP)
 
-    def listenning_on_udp(self):
-        # Create a UDP socket at client side
-        udp_client_socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
-        udp_client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-        udp_client_socket.bind(("", self.port))
-
-        while 1:
-
-            offer_from_server, adress = udp_client_socket.recvfrom(2048)
-            self.server_host = adress[0]
-            # print(self.server_host)
+    def get_offer_byUDP(self):
+        client_socket_UDP = socket(AF_INET, SOCK_DGRAM)  # create udp client socket
+        client_socket_UDP.setsockopt(SOL_SOCKET, SO_REUSEPORT, 1)
+        client_socket_UDP.bind(("", self.udp_port))
+        while True:
+            offer, server_address = client_socket_UDP.recvfrom(self.buff_len)
+            self.server_ip = server_address[0]
             try:
-                magic_cookie, message_type, server_port = struct.unpack('IbH', offer_from_server)
-                print("amen")
-                if (self.magic_cookie == magic_cookie and self.message_type == message_type):
-                    udp_client_socket.close()
-                    return server_port
+                cookie, msg_type, server_port = struct.unpack('IbH', offer)
+                if cookie == self.magic_cookie and msg_type == self.msg_type:
+                    # client_socket.close()
+                    return server_port, self.server_ip
             except:
                 pass
 
-    def listening_on_tcp(self, server_port):
-        client_socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM)
+    def connect_to_server(self, server_port, server_ip):
         try:
-            print("Received offer from", self.server_host, ",attempting to connect...")
-            client_socket.connect((self.server_host, server_port))
-            # print("asdasf")
-            client_socket.send("kitkat".encode('UTF-8'))
-            return client_socket
+            client_socket_TCP = socket(AF_INET, SOCK_STREAM)  # create tcp client socket
+            print("Received offer from {0} attempting to connect...".format(server_ip))
+            print(server_ip, server_port)
+            client_socket_TCP.connect((server_ip, server_port))
+            print("client connected")
+            client_socket_TCP.sendall(team_name.encode("UTF-8"))
+
+            return client_socket_TCP
         except:
             return None
 
     def start_game(self, client_socket):
-        self.state = True
-        message = client_socket.recv(1024).decode("UTF-8")
-        print(message)
+        print("client-start game")
+        start_msg = client_socket.recv(self.buff_len).decode("UTF-8")
+        print(start_msg)
         client_socket.setblocking(0)
-        while 1:
+        end_game = False
+        while not end_game:
             try:
-                message = client_socket.recv(1024).decode("UTF-8")
-                if message is None:
+                msg = client_socket.recv(self.buff_len).decode("UTF-8")
+                if not msg:
+                    end_game = True
+                    break
+                else:
+                    print(msg)
+                    end_game = True
                     break
             except:
                 pass
-            try:
-                client_socket.sendall(getch.getch().encode("UTF-8"))
-            except socket.error:
-                pass
-            client_socket.close()
+            if not end_game and not kbhit():
+                try:
+                    client_socket.sendall(getch().encode("UTF-8"))
+                except:
+                    pass
+        client_socket.close()
+        print("Server disconnected, listening for offer requests...\n")
 
+    def kbhit(self):
+        dr, dw, de = select([sys.stdin], [], [], 0)
+        return dr == 0
 
-def main():
-    client = Client()
-    client.main()
+    # def close_tcp(client_socket):
+    #     client_socket.shutdown(socket.SHUT_RDWR)
+    #     client_socket.close()
 
-
-if __name__ == "__main__":
-    main()
+    # if __name__ == "__main__":
+    #     start_client()

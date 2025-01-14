@@ -1,8 +1,8 @@
-import socket
-import threading
+from socket import *
+from _thread import *
+from threading import Thread, Lock
 import time
-import struct
-from threading import Thread
+from scapy.arch import get_if_addr
 import random
 
 
@@ -10,141 +10,119 @@ class Server:
 
     def __init__(self):
 
-        self.d_port = 13500
-        self.s_port = 2066
-        self.host = socket.gethostbyname(socket.gethostname())
-        self.state = False  # False - not in game mode
-        self.clients = []
+        # constants
+        self.buff_len = 2048
         self.magic_cookie = 0xabcddcba
-        self.message_type = 0x2
+        self.msg_type = 0x2
+        self.source_ip = get_if_addr('eth1')  # ip development network  # socket.gethostbyname(socket.gethostname())
+        self.source_port = 2060
+        self.dest_port = 13111
+        # global variables
+        self.clients = []  # (team_thread, team_num, team_name, connection_socket)
         self.question = ""
-        self.answer = ""
-        self.client1_ans = ""
-        self.client2_ans = ""
-        self.winner = ""
+        self.answer_player1 = ""
+        self.answer_player2 = ""
+        # WINNER_NUM = 0
         self.lock = False
+        self.winner = ""
 
-    def main(self):
-        print("Server started, listening on IP address", self.host)
-        while 1:
-            tcp_connect_thread = threading.Thread(target=self.listening_on_tcp)
-            send_offer_thread = threading.Thread(target=self.send_offer_udp)
-            print("lalalalallalalala")
+    def start_server(self):
+        print("Server started, listening on IP address {0}".format(self.source_ip))
+        server_socket_TCP = socket(AF_INET, SOCK_STREAM)  # create tcp socket
+        server_socket_TCP.bind((self.source_ip, self.source_port))
+        while True:
+            send_offers_thread = Thread(target=self.send_offers_byUDP)  # thread for sending offers
+            find_client_thread = Thread(target=self.connet_client, args=(server_socket_TCP,))
+            find_client_thread.start()
+            send_offers_thread.start()
+            send_offers_thread.join()
+            find_client_thread.join()
+            self.start_game()
 
-            print("2sjdjkdllslsls")
-            tcp_connect_thread.start()
-            send_offer_thread.start()
-            send_offer_thread.join()
-            tcp_connect_thread.join()
-            time.sleep(1)
-            start_game()
-            print("Game over!/nThecorrect answer was", self.answer, "!", "/nCongratulations to the winner: ",
-                  self.winner)
-            reset_all()
-
-    def send_offer_udp(self):
-        print("send_offer_udp1")
-        server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-        print("send_offer_udp2")
-        server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-
-        # print("Server started, listening on IP address" , self.self.host)
-        # Enable broadcasting mode
-        # server.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        server.bind(('', self.s_port))
-        # timeout so the socket does not block
-
-        print("send_offer_udp3")
-
-        offer_message = struct.pack('IbH', self.magic_cookie, self.message_type, self.s_port)
+    def send_offers_byUDP(self):
+        server_socket_UDP = socket(AF_INET, SOCK_DGRAM)
+        server_socket_UDP.setsockopt(SOL_SOCKET, SO_REUSEPORT, 1)
+        server_socket_UDP.bind(("", self.source_port))
+        offer = struct.pack('IbH', self.magic_cookie, self.msg_type, self.source_port)
         while len(self.clients) < 2:
-            # print(len(self.clients))
-            # print("client len", len(self.clients))
-            server.sendto(offer_message, ('', self.d_port))
+            server_socket_UDP.sendto(offer, ("", self.dest_port))
             time.sleep(1)
 
-    def listening_on_tcp(self):
-        # connection_succeess = False
-        try:
-
-            server_socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM)
-            server_socket.bind((self.host, self.s_port))
-            server_socket.listen(2)
-
-            i = 0
-            # print(time.time() )
-            # print(game_done)
-            # while(time.time()<game_done and len(self.clients)<2):
-            while (len(self.clients) < 2):
-                print("dana")
-                i += 1
-                try:
-                    connection_socket, addr = server_socket.accept()
-                    # print("after accept")
-                    client_name = connection_socket.recv(1024).decode("UTF-8")
-                    # print("add client")
-                    self.clients.append(
-                        (Thread(calc_self.question, (connection_socket, i)), client_name, addr, connection_socket))
-                except:
-                    print("error")
-                    if (time.time() >= game_done or len(self.clients) >= 2):
-                        break
-                    pass
-
-
-        except:
-
-            pass
-
-    def start_game(self):
-        val1 = random.randrange(5)
-        val2 = random.randrange(5)
-        self.answer = val1 + val2
-        self.question = "{}+{}".format(val1, val2)
-        self.state = True
-        for client in self.clients:
-            client[0].start()
-        for client in self.clients:
-            client[0].join()
-
-    def calc_question(self, connection_socket, client_num):
-        message = "Welcome to Quick Maths./nPlayer 1: ", self.clients[0][1], "/nPlayer 2: ", self.clients[1][
-            1], "/n==/nPlease self.answer the following self.question as fast as you can:"
-        connection_socket.send(message.encode("UTF-8"))
-        game_done = time.time() + 10
-        client_ans = None
-
-        while (time.time() < game_done and client_ans == None):
-
+    def connet_client(self, server_socket_TCP):
+        # timeout?
+        start_time = time.time()
+        time_out = 0
+        while time_out < 10:
+            time_out = time.time() - start_time
             try:
-                client_ans = connection_socket.recv(1024).decode('UTF-8')
-                self.lock = True
-                if client_ans == self.answer:
-                    self.winner = client_num
-                else:
-                    if (client_num == 1):
-                        self.winner = self.clients[1]
-                    else:
-                        self.winner = self.clients[0]
+                conn, client_address = server_socket_TCP.accept()
+                print(client_address)
+                # timeout?
+                player_name = ""
+                while player_name == "":
+                    try:
+                        player_name = conn.recv(self.buff_len).decode("UTF-8")
+                        print(player_name)
+                        while len(self.clients) < 2:
+                            player_thread = Thread(target=answer, arg=(conn, len(self.clients)))
+                            self.clients.append((player_thread, len(self.clients), player_name, conn))
+                    except:
+                        time_out = time.time() - start_time
+                        if time_out >= 10:
+                            print("timeout")
+                            break
+                        else:
+                            pass
             except:
                 pass
 
-        def reset_all():
+    def answer(self, conn, player_num):
+        # start_game_message = "Welcome to Quick Maths.\nPlayer 1: {0}\nPlayer 2: {1}\n==\nPlease answer the following question as fast as you can:\nHow much is {2}?".format(self.clients[0][2], self.clients[1][2],self.question)
+        start_game_message = "Welcome to Quick Maths.\nPlayer 1: {0}\nPlayer 2: player2\n==\nPlease answer the following question as fast as you can:\nHow much is {1}?".format(
+            self.clients[0][2], self.question)
+        conn.send(start_game_message.encode("UTF-8"))
+        start_time = time.time()
+        time_out = 0
+        answer = None
+        while time_out < 10 and answer == None:
+            time_out = time.time() - start_time
+            try:
+                answer = conn.recv(self.buff_len).decode("UTF-8")
+                self.lock = True
+                if answer == eval(self.question):
+                    self.winner = player_num
 
-            self.state = False  # False - not in game mode
-            self.clients = []
+                else:
+                    if player_num == self.clients[0][1]:
+                        self.winner = self.clients[1][2]
+                    else:
+                        self.winner = self.clients[0][2]
+                return
+            except:
+                pass
+        if (self.lock == False):
+            self.winner = 0
+        self.game_over()
 
-            self.question = ""
-            self.answer = ""
-            self.client1_ans = ""
-            self.client2_ans = ""
-            self.winner = ""
+    def start_game(self):
+        optional_questions = ["2+2", "5+2", "3*2"]
+        index = random.randrange(3)
+        self.question = optional_questions[index]
+        # for client in self.clients:
+        #     client[3].send(start_game_message.encode("UTF-8"))
+        self.clients[0][0].start()
+        self.clients[1][0].start()
+        self.clients[0][0].join()
+        self.clients[1][0].join()
+        end_game_msg = "Game over!\nThe correct answer was {0}!\nCongratulations to the winner: {1}".format(
+            eval(self.question), self.clients[0][2])
+        if self.answer_player1 == eval(self.question):
+            end_game_msg = "Game over!\nThe correct answer was {0}!\nCongratulations to the winner: {1}".format(
+                eval(self.question), self.clients[0][2])
 
+        for client in self.clients:
+            client[3].send(end_game_msg.encode("UTF-8"))
+            client[3].close()
 
-def main():
-    server = Server()
-    server.main()
-
-
-if __name__ == "__main__":
-    main()
+    # if __name__ == "__main__":
+    #     start_server()
