@@ -5,15 +5,22 @@ import time
 # Constants
 MAGIC_COOKIE = 0xabcddcba
 OFFER_TYPE = 0x2
+MULTICAST_GROUP = "224.0.0.1"
+MULTICAST_PORT = 13117
 
 class Client:
-    def listen_for_offers(self):
-        """Listen for server offers via UDP broadcast."""
+    def listen_for_multicast_offers(self):
+        """Listen for server offers via multicast."""
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp_socket:
             udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-            udp_socket.bind(('', 13117))
-            print("Client listening for broadcast offers on port 13117...")
+            udp_socket.bind(("", MULTICAST_PORT))
+
+            # Join the multicast group
+            group = socket.inet_aton(MULTICAST_GROUP)
+            mreq = group + struct.pack("=I", socket.INADDR_ANY)
+            udp_socket.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
+
+            print(f"Client listening for multicast offers on {MULTICAST_GROUP}:{MULTICAST_PORT}...")
 
             while True:
                 data, address = udp_socket.recvfrom(1024)
@@ -25,7 +32,7 @@ class Client:
 
     def start(self):
         """Start the client."""
-        server_ip, tcp_port = self.listen_for_offers()
+        server_ip, tcp_port = self.listen_for_multicast_offers()
         file_size = int(input("Enter file size in bytes: "))
 
         # Connect to the server via TCP

@@ -7,27 +7,26 @@ import random
 # Constants
 MAGIC_COOKIE = 0xabcddcba
 OFFER_TYPE = 0x2
+MULTICAST_GROUP = "224.0.0.1"
+MULTICAST_PORT = 13117
 
 class Server:
     def __init__(self):
         self.udp_port = random.randint(20000, 30000)
         self.tcp_port = random.randint(30001, 40000)
 
-    def broadcast_offers(self):
-        """Broadcast UDP offers to clients."""
+    def multicast_offers(self):
+        """Send multicast UDP offers to clients."""
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp_socket:
-            udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-            udp_socket.bind(("", 0))  # Bind to any available port
-
+            udp_socket.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 2)  # Set multicast TTL
             while True:
-                # Prepare an offer packet
                 offer_packet = struct.pack('>IBHH', MAGIC_COOKIE, OFFER_TYPE, self.udp_port, self.tcp_port)
-                udp_socket.sendto(offer_packet, ('255.255.255.255', 13117))
-                print(f"Broadcasting offer: UDP {self.udp_port}, TCP {self.tcp_port}")
+                udp_socket.sendto(offer_packet, (MULTICAST_GROUP, MULTICAST_PORT))
+                print(f"Multicasting offer: UDP {self.udp_port}, TCP {self.tcp_port}")
                 time.sleep(1)
 
     def handle_tcp_client(self, client_socket):
-        """Handle TCP communication."""
+        """Handle TCP client communication."""
         try:
             data = client_socket.recv(1024).decode()
             file_size = int(data.strip())
@@ -43,8 +42,8 @@ class Server:
         """Start the server."""
         print(f"Server started. UDP port: {self.udp_port}, TCP port: {self.tcp_port}")
 
-        # Start broadcasting offers
-        threading.Thread(target=self.broadcast_offers, daemon=True).start()
+        # Start multicasting offers
+        threading.Thread(target=self.multicast_offers, daemon=True).start()
 
         # Listen for TCP connections
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as tcp_socket:
