@@ -13,7 +13,7 @@ MSG_TYPE_OFFER = 0x2
 MSG_TYPE_REQUEST = 0x3
 MSG_TYPE_PAYLOAD = 0x4
 
-BROADCAST_IP = "<broadcast>"
+BROADCAST_IP = "10.100.102.255"
 BROADCAST_PORT = 13117      # Usually the known port for receiving offers
 BROADCAST_INTERVAL = 1.0    # seconds between broadcasts
 TCP_BACKLOG = 5             # Maximum pending TCP connections
