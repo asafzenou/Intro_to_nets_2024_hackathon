@@ -14,19 +14,26 @@ PAYLOAD_TYPE = 0x4
 
 
 class Client:
+    def __init__(self):
+        self.port = 13117
+
     def listen_for_offers(self):
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp_socket:
             udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            udp_socket.bind(('', 13117))
+            udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)  # Enable broadcast
+            udp_socket.bind(('', 13117))  # Listen on broadcast port
             print("Client listening for offers...")
 
             while True:
-                data, address = udp_socket.recvfrom(1024)
-                if len(data) >= 9:
-                    magic_cookie, message_type, udp_port, tcp_port = struct.unpack('>IBHH', data[:9])
-                    if magic_cookie == MAGIC_COOKIE and message_type == OFFER_TYPE:
-                        print(f"Received offer from {address[0]} - UDP port {udp_port}, TCP port {tcp_port}")
-                        return address[0], udp_port, tcp_port
+                try:
+                    data, address = udp_socket.recvfrom(1024)
+                    if len(data) >= 9:
+                        magic_cookie, message_type, udp_port, tcp_port = struct.unpack('>IBHH', data[:9])
+                        if magic_cookie == MAGIC_COOKIE and message_type == OFFER_TYPE:
+                            print(f"Received offer from {address[0]} - UDP port {udp_port}, TCP port {tcp_port}")
+                            return address[0], udp_port, tcp_port
+                except Exception as e:
+                    print(f"Error receiving offer: {e}")
 
     def send_requests(self, server_ip, udp_port, tcp_port, file_size, tcp_connections, udp_connections):
         def tcp_request():
