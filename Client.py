@@ -1,83 +1,55 @@
-import sys
-from socket import *
+import socket
 import struct
-from scapy.arch import *
-from select import select
-import getch
 
+# ==============================
+# CONFIGURATION & CONSTANTS
+# ==============================
+MAGIC_COOKIE = 0xabcddcba
+MSG_TYPE_OFFER = 0x02
 
-class Client:
-
-    def __init__(self):
-        self.port = 13500
-        self.server_host = ""
-        self.state = False  # False - not in game mode
-
-        self.magic_cookie = 0xabcddcba
-        self.message_type = 0x2
-
-    def main(self):
-        print("Client started, listening for offer requests...")
-        while 1:
-            server_port = self.listenning_on_udp()
-            client_socket = self.listening_on_tcp(server_port)
-            if (client_socket is None):
-                continue
-            start_game(client_socket)
-
-    def listenning_on_udp(self):
-        # Create a UDP socket at client side
-        udp_client_socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
-        udp_client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-        udp_client_socket.bind(("", self.port))
-
-        while 1:
-
-            offer_from_server, adress = udp_client_socket.recvfrom(2048)
-            self.server_host = adress[0]
-            # print(self.server_host)
-            try:
-                magic_cookie, message_type, server_port = struct.unpack('IbH', offer_from_server)
-                print("amen")
-                if (self.magic_cookie == magic_cookie and self.message_type == message_type):
-                    udp_client_socket.close()
-                    return server_port
-            except:
-                pass
-
-    def listening_on_tcp(self, server_port):
-        client_socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM)
-        try:
-            print("Received offer from", self.server_host, ",attempting to connect...")
-            client_socket.connect((self.server_host, server_port))
-            # print("asdasf")
-            client_socket.send("kitkat".encode('UTF-8'))
-            return client_socket
-        except:
-            return None
-
-    def start_game(self, client_socket):
-        self.state = True
-        message = client_socket.recv(1024).decode("UTF-8")
-        print(message)
-        client_socket.setblocking(0)
-        while 1:
-            try:
-                message = client_socket.recv(1024).decode("UTF-8")
-                if message is None:
-                    break
-            except:
-                pass
-            try:
-                client_socket.sendall(getch.getch().encode("UTF-8"))
-            except socket.error:
-                pass
-            client_socket.close()
+LISTEN_PORT = 13117  # Must match BROADCAST_PORT in server.py
 
 
 def main():
-    client = Client()
-    client.main()
+    """
+    Listens on UDP port 13117 for 'offer' messages from the server.
+    When an offer is received, prints out the server IP and port.
+    """
+    # Create UDP socket
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
+    # If you want to run multiple clients on the same machine, 
+    # you can also do: sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+
+    sock.bind(('', LISTEN_PORT))  # Listen on all interfaces, port 13117
+
+    print("Client started, listening for offer requests...")
+
+    try:
+        while True:
+            data, addr = sock.recvfrom(1024)  # Receive up to 1024 bytes
+            if len(data) < 7:
+                # Too small to contain our message => ignore
+                continue
+
+            # Attempt to parse
+            # Format: magic_cookie (4 bytes), msg_type (1 byte), server_udp_port (2 bytes)
+            try:
+                cookie, msg_type, server_udp_port = struct.unpack('!IBH', data)
+            except struct.error:
+                # Invalid data format
+                continue
+
+            if cookie == MAGIC_COOKIE and msg_type == MSG_TYPE_OFFER:
+                # This is a valid offer message
+                print(f"Received offer from {addr[0]}, server UDP port={server_udp_port}")
+                print("You could now initiate a TCP or UDP connection to that server.")
+    except KeyboardInterrupt:
+        print("\nClient shutting down...")
+
+    finally:
+        sock.close()
 
 
 if __name__ == "__main__":
