@@ -15,15 +15,17 @@ class Server:
     def __init__(self):
         self.SERVER_UDP_PORT = random.randint(20000, 30000)
         self.SERVER_TCP_PORT = random.randint(30001, 40000)
+        self.client_port = 13117
 
     def udp_offer_broadcast(self):
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP) as udp_socket:
             udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+            udp_socket.bind(("", 0))  # Bind to all interfaces and any available port
             while True:
                 offer_packet = struct.pack(
                     '>IBHH', MAGIC_COOKIE, OFFER_TYPE, self.SERVER_UDP_PORT, self.SERVER_TCP_PORT)
-                udp_socket.sendto(offer_packet, ('<broadcast>', 13117))
-                print("Offer broadcast sent")
+                udp_socket.sendto(offer_packet, ('<broadcast>', 13117))  # Broadcast to all
+                print(f"Offer broadcast sent on port 13117")
                 time.sleep(1)
 
     def handle_client_tcp(self, client_socket):
