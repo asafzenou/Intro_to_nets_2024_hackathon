@@ -16,7 +16,7 @@ class Client:
             udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
             udp_socket.bind(('', 13117))
-            print("Client listening for offers...")
+            print("Client listening for broadcast offers on port 13117...")
 
             while True:
                 data, address = udp_socket.recvfrom(1024)

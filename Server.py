@@ -3,7 +3,6 @@ import struct
 import threading
 import time
 import random
-import select
 
 # Constants
 MAGIC_COOKIE = 0xabcddcba
@@ -20,9 +19,11 @@ class Server:
         """Broadcast UDP offers to clients."""
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp_socket:
             udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+            udp_socket.bind(("", 0))  # Bind to any available port
+
             while True:
                 offer_packet = struct.pack('>IBHH', MAGIC_COOKIE, OFFER_TYPE, self.udp_port, self.tcp_port)
-                udp_socket.sendto(offer_packet, ('<broadcast>', 13117))
+                udp_socket.sendto(offer_packet, ('255.255.255.255', 13117))
                 print(f"Broadcasting offer: UDP {self.udp_port}, TCP {self.tcp_port}")
                 time.sleep(1)
 
@@ -33,7 +34,7 @@ class Server:
             file_size = int(data.strip())
             payload = b'1' * file_size
             client_socket.sendall(payload)
-            print(f"Sent {file_size} bytes over TCP.")
+            print(f"TCP: Sent {file_size} bytes over TCP.")
         except Exception as e:
             print(f"Error handling TCP client: {e}")
         finally:
@@ -42,15 +43,17 @@ class Server:
     def handle_udp_request(self, udp_socket, client_address, file_size):
         """Handle UDP data transfer."""
         total_segments = file_size // 1024 + (1 if file_size % 1024 else 0)
+
         try:
             for i in range(total_segments):
                 payload = struct.pack('>IBQQ', MAGIC_COOKIE, PAYLOAD_TYPE, total_segments, i + 1) + b'1' * 1024
                 udp_socket.sendto(payload, client_address)
-            print(f"Sent {total_segments} UDP segments to {client_address}.")
+            print(f"UDP: Sent {total_segments} segments to {client_address}.")
         except Exception as e:
             print(f"Error handling UDP client: {e}")
 
     def start(self):
+        """Start the server."""
         print(f"Server started. UDP port: {self.udp_port}, TCP port: {self.tcp_port}")
         threading.Thread(target=self.broadcast_offers, daemon=True).start()
 
@@ -64,17 +67,10 @@ class Server:
                 print("Listening for UDP requests...")
 
                 while True:
-                    # Use select.select to monitor both sockets
-                    ready, _, _ = select.select([tcp_socket, udp_socket], [], [])
-                    for sock in ready:
-                        if sock == tcp_socket:
-                            client_socket, _ = tcp_socket.accept()
-                            threading.Thread(target=self.handle_tcp_client, args=(client_socket,), daemon=True).start()
-                        elif sock == udp_socket:
-                            data, addr = udp_socket.recvfrom(1024)
-                            if len(data) >= 13:
-                                magic_cookie, message_type, file_size = struct.unpack('>IBQ', data[:13])
-                                if magic_cookie == MAGIC_COOKIE and message_type == REQUEST_TYPE:
-                                    threading.Thread(
-                                        target=self.handle_udp_request, args=(udp_socket, addr, file_size), daemon=True
-                                    ).start()
+                    data, addr = udp_socket.recvfrom(1024)
+                    if len(data) >= 13:
+                        magic_cookie, message_type, file_size = struct.unpack('>IBQ', data[:13])
+                        if magic_cookie == MAGIC_COOKIE and message_type == REQUEST_TYPE:
+                            threading.Thread(
+                                target=self.handle_udp_request, args=(udp_socket, addr, file_size), daemon=True
+                            ).start()
