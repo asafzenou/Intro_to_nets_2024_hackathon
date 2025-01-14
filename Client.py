@@ -16,7 +16,7 @@ PAYLOAD_TYPE = 0x4
 class Client:
     def listen_for_offers(self):
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp_socket:
-            udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+            udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             udp_socket.bind(('', 13117))
             print("Client listening for offers...")
 
