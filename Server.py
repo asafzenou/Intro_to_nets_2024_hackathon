@@ -10,22 +10,19 @@ OFFER_TYPE = 0x2
 REQUEST_TYPE = 0x3
 PAYLOAD_TYPE = 0x4
 
-
 class Server:
     def __init__(self):
         self.SERVER_UDP_PORT = random.randint(20000, 30000)
         self.SERVER_TCP_PORT = random.randint(30001, 40000)
-        self.client_port = 13117
 
     def udp_offer_broadcast(self):
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP) as udp_socket:
             udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
             udp_socket.bind(("", 0))  # Bind to all interfaces and any available port
             while True:
-                offer_packet = struct.pack(
-                    '>IBHH', MAGIC_COOKIE, OFFER_TYPE, self.SERVER_UDP_PORT, self.SERVER_TCP_PORT)
+                offer_packet = struct.pack('>IBHH', MAGIC_COOKIE, OFFER_TYPE, self.SERVER_UDP_PORT, self.SERVER_TCP_PORT)
                 udp_socket.sendto(offer_packet, ('<broadcast>', 13117))  # Broadcast to all
-                print(f"Offer broadcast sent on port 13117")
+                print(f"Broadcasting offer: UDP {self.SERVER_UDP_PORT}, TCP {self.SERVER_TCP_PORT}")
                 time.sleep(1)
 
     def handle_client_tcp(self, client_socket):
@@ -46,9 +43,7 @@ class Server:
 
         try:
             for i in range(total_segments):
-                payload_packet = struct.pack(
-                    '>IBQQ', MAGIC_COOKIE, PAYLOAD_TYPE, total_segments, i + 1
-                ) + b'1' * 1024
+                payload_packet = struct.pack('>IBQQ', MAGIC_COOKIE, PAYLOAD_TYPE, total_segments, i + 1) + b'1' * 1024
                 server_udp_socket.sendto(payload_packet, client_address)
                 segment_count += 1
                 time.sleep(0.001)  # Simulate slight delay
@@ -85,4 +80,5 @@ class Server:
                                 magic_cookie, message_type, file_size = struct.unpack('>IBQ', data[:13])
                                 if magic_cookie == MAGIC_COOKIE and message_type == REQUEST_TYPE:
                                     threading.Thread(
-                                        target=self.handle_client_udp, args=(udp_socket, client_address, file_size), daemon=True).start()
+                                        target=self.handle_client_udp, args=(udp_socket, client_address, file_size), daemon=True
+                                    ).start()

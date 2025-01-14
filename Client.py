@@ -2,16 +2,12 @@ import socket
 import struct
 import threading
 import time
-import random
-
-from Server import Server
 
 # Constants
 MAGIC_COOKIE = 0xabcddcba
 OFFER_TYPE = 0x2
 REQUEST_TYPE = 0x3
 PAYLOAD_TYPE = 0x4
-
 
 class Client:
     def __init__(self):
@@ -20,8 +16,8 @@ class Client:
     def listen_for_offers(self):
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp_socket:
             udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)  # Enable broadcast
-            udp_socket.bind(('', 13117))  # Listen on broadcast port
+            udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+            udp_socket.bind(('', 13117))
             print("Client listening for offers...")
 
             while True:
@@ -78,12 +74,9 @@ class Client:
             t.join()
 
     def start(self):
-        server_ip, udp_port, tcp_port = self.listen_for_offers()
         file_size = int(input("Enter file size in bytes: "))
         tcp_connections = int(input("Enter number of TCP connections: "))
         udp_connections = int(input("Enter number of UDP connections: "))
 
+        server_ip, udp_port, tcp_port = self.listen_for_offers()
         self.send_requests(server_ip, udp_port, tcp_port, file_size, tcp_connections, udp_connections)
-
-
-
