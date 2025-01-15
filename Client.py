@@ -7,7 +7,7 @@ import threading
 # ==============================
 # CONFIGURATION & CONSTANTS
 # ==============================
-VERSION = "1.1"  # Just to remind that this is example code for Hackathon v1.1
+
 MAGIC_COOKIE = 0xabcddcba
 MSG_TYPE_OFFER = 0x2
 MSG_TYPE_REQUEST = 0x3

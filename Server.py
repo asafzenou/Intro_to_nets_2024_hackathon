@@ -12,12 +12,12 @@ MAGIC_COOKIE = 0xabcddcba
 MSG_TYPE_OFFER = 0x2
 MSG_TYPE_REQUEST = 0x3
 MSG_TYPE_PAYLOAD = 0x4
-#"<broadcast>"
-#255.255.255.255
+# "<broadcast>"
+# 255.255.255.255
 BROADCAST_IP = "172.18.255.255"
-BROADCAST_PORT = 13124     # Usually the known port for receiving offers
-BROADCAST_INTERVAL = 1.0    # seconds between broadcasts
-TCP_BACKLOG = 5             # Maximum pending TCP connections
+BROADCAST_PORT = 13124  # Usually the known port for receiving offers
+BROADCAST_INTERVAL = 1.0  # seconds between broadcasts
+TCP_BACKLOG = 5  # Maximum pending TCP connections
 
 # For demo, we'll use these default ports for server to listen on:
 SERVER_UDP_PORT = 2024
@@ -27,6 +27,7 @@ SERVER_TCP_PORT = 2025
 UDP_PAYLOAD_SIZE = 1024
 # Similarly, for TCP we can read/write in chunks
 TCP_PAYLOAD_SIZE = 1024
+
 
 # ==============================
 # SERVER LOGIC
@@ -40,8 +41,15 @@ class SpeedTestServer:
 
     def __init__(self):
         # 1. Prepare a UDP socket for broadcasting offers
+
+        # socket.IPPROTO_UDP:
+        #           In C (and most operating systems), UDP is identified by the unique protocol number 17 (decimal),
+        #           which corresponds to the socket.IPPROTO_UDP constant in Python.
+
         self.broadcast_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        # to allow sending broadcast messages
         self.broadcast_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        # reuse the same address/port immediately, rather than waiting for the system to release it on its own
         self.broadcast_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
         # 2. Prepare a TCP server socket to accept connections for file transfer
@@ -64,7 +72,7 @@ class SpeedTestServer:
         2) Handling incoming TCP connections
         3) Handling incoming UDP requests
         """
-        print(f"[Server] Version {VERSION} starting up.")
+
         ip_address = self.get_local_ip()
         print(f"[Server] Server started, listening on IP address {ip_address}")
 
@@ -120,7 +128,8 @@ class SpeedTestServer:
             try:
                 client_socket, client_address = self.tcp_server_socket.accept()
                 print(f"[Server][TCP] New connection from {client_address}")
-                threading.Thread(target=self.handle_tcp_client, args=(client_socket, client_address), daemon=True).start()
+                threading.Thread(target=self.handle_tcp_client, args=(client_socket, client_address),
+                                 daemon=True).start()
             except Exception as e:
                 print(f"[Server][TCP] Accept error: {e}")
                 break
