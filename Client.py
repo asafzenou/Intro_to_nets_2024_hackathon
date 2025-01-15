@@ -14,7 +14,7 @@ MSG_TYPE_REQUEST = 0x3
 MSG_TYPE_PAYLOAD = 0x4
 
 # We listen for offer messages on this port:
-CLIENT_LISTEN_PORT = 13117
+CLIENT_LISTEN_PORT = 13124
 
 # If you want to run multiple clients on the same computer, you may need:
 # s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
