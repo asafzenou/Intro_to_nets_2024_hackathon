@@ -12,9 +12,10 @@ MAGIC_COOKIE = 0xabcddcba
 MSG_TYPE_OFFER = 0x2
 MSG_TYPE_REQUEST = 0x3
 MSG_TYPE_PAYLOAD = 0x4
-
-BROADCAST_IP = "<broadcast>"
-BROADCAST_PORT = 13117      # Usually the known port for receiving offers
+#"<broadcast>"
+#255.255.255.255
+BROADCAST_IP = "172.18.255.255"
+BROADCAST_PORT = 13124     # Usually the known port for receiving offers
 BROADCAST_INTERVAL = 1.0    # seconds between broadcasts
 TCP_BACKLOG = 5             # Maximum pending TCP connections
 
